@@ -4,7 +4,7 @@
 
 **适配系统**　macOS（Apple Silicon）｜ Windows
 
-**适配环境**　C ｜ Python
+**适配环境**　C ｜ C++ ｜ Python ｜ Java
 
 **适配软件**　<img src="assets/vscode.png" width="20"> Visual Studio Code
 

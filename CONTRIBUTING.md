@@ -72,3 +72,49 @@ cd macos
 改图标时记得**重新导出这两个文件**：先出方形原图，再在底部补 60px 透明边距。
 
 > 别用 `align="middle"` —— 实测偏低 11.5px，比默认的偏高 6.5px 还糟。
+
+## 怎么加一个新环境
+
+启动器**不存环境列表**。它扫描目录里所有 `new-*` 脚本，从脚本开头的
+`# @label XXX` 读取显示名，菜单是运行时生成的。所以加环境只需要两步：
+
+**1. 写脚手架脚本**
+
+- macOS：`macos/new-xxx`（bash，记得 `chmod +x`）
+- Windows：`windows/new-xxx.ps1`（PowerShell，**必须带 UTF-8 BOM**）
+
+脚本第一行注释声明显示名：
+
+```bash
+#!/bin/bash
+# @label Rust
+```
+
+```powershell
+#Requires -Version 5.1
+# @label Rust
+```
+
+没有 `@label` 也能用，会回退成文件名首字母大写（`new-rust` → `Rust`）。
+
+**2. 完事**
+
+`build.sh` 和 `install.ps1` 都是按 `new-*` 通配收录的，不用改。
+把脚本放进 `~/bin`（macOS）或 `%USERPROFILE%\bin`（Windows）即可生效。
+
+### 脚手架约定
+
+- 项目建到 `~/VS Code/<名字>`（Windows 是 `%USERPROFILE%\VS Code\`）
+- **检测工具链时要真的执行一次**，不能只看 `command -v` / `Get-Command`。
+  macOS 没装 JDK 时 `/usr/bin/javac` 也存在，但那只是个占位存根；
+  Windows 上 Oracle 的 `javapath` 在 JDK 卸载后也会留坏存根。
+- 工具链缺失时**照常建项目**，但在项目根目录写一个 `!缺少工具链.md`，
+  里面写清楚缺什么、怎么装。启动器会检测到这个文件并额外弹窗提醒。
+
+### 排查「我的环境没出现在菜单里」
+
+```bash
+CODELAUNCHER_LIST=1 ~/Applications/环境启动器.app/Contents/MacOS/launcher
+```
+
+会直接列出发现到的环境、标签和来源路径，不开面板。

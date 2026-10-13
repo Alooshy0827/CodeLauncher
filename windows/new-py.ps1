@@ -1,4 +1,5 @@
 ﻿#Requires -Version 5.1
+# @label Python
 <#
     new-py —— 一键新建 Python 项目（Windows 版）
     用法: new-py 项目名

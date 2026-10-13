@@ -65,6 +65,19 @@ else
     echo "  ${DIM}(未找到图标，跳过)${RESET}"
 fi
 
+# ── 脚手架（打包进 App 作兜底副本）──
+# 启动器会扫描 new-* 脚本；用户自己的在 ~/bin 或 PATH 里优先，
+# 这份是 App 自带的兜底，保证不装任何东西也能用。
+mkdir -p "$APP/Contents/Resources/scripts"
+BUNDLED=0
+for s in "$SCRIPT_DIR"/new-*; do
+    [ -f "$s" ] || continue
+    cp "$s" "$APP/Contents/Resources/scripts/"
+    chmod +x "$APP/Contents/Resources/scripts/$(basename "$s")"
+    BUNDLED=$((BUNDLED + 1))
+done
+ok "已打包 $BUNDLED 个脚手架: $(ls "$APP/Contents/Resources/scripts" | tr '\n' ' ')"
+
 # ── Info.plist ──
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

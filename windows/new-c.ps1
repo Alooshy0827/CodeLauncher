@@ -1,4 +1,5 @@
 ﻿#Requires -Version 5.1
+# @label C
 <#
     new-c —— 一键新建 C 项目（Windows 版）
     用法: new-c 项目名

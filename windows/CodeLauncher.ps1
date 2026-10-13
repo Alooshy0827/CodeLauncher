@@ -23,6 +23,7 @@ $script:AppTitle      = 'CodeLauncher'
 $script:Root          = Join-Path $env:USERPROFILE 'VS Code'
 $script:WorkspaceFile = Join-Path $script:Root 'c-projects.code-workspace'
 $script:UiFont        = [System.Drawing.SystemFonts]::MessageBoxFont
+$script:WarningFileName = '!缺少工具链.md'
 
 # ══════════════════════════════════════════════════════════
 #  工具函数
@@ -198,33 +199,70 @@ function Open-InVSCode {
     Start-Process -FilePath $CodeCmd -ArgumentList @('-n', "`"$Path`"") | Out-Null
 }
 
-# 调用 new-c.ps1 / new-py.ps1 建项目
-function Invoke-Scaffold {
-    param(
-        [Parameter(Mandatory)][ValidateSet('c', 'py')][string]$Kind,
-        [Parameter(Mandatory)][string]$Name
-    )
+# ══════════════════════════════════════════════════════════
+#  脚手架发现
+#
+#  不写死环境列表，而是扫描目录里所有 new-*.ps1，
+#  从脚本开头的 "# @label XXX" 读取显示名。
+#  加新环境 = 丢一个脚本进去，这个文件一行都不用改。
+# ══════════════════════════════════════════════════════════
 
-    $fileName = if ($Kind -eq 'c') { 'new-c.ps1' } else { 'new-py.ps1' }
-
-    # 1) 优先用与本脚本同目录的脚手架
-    if ($PSScriptRoot) {
-        $local = Join-Path $PSScriptRoot $fileName
-        if (Test-Path -LiteralPath $local) {
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $local $Name | Out-Null
-            return
+function Get-ScaffoldDirs {
+    # 顺序即优先级：用户自己的 → PATH 里的 → 与本脚本同目录的兜底副本
+    $dirs = New-Object System.Collections.Generic.List[string]
+    $dirs.Add((Join-Path $env:USERPROFILE 'bin'))
+    if ($env:PATH) {
+        foreach ($d in ($env:PATH -split ';')) {
+            if ($d -and $d.Trim()) { $dirs.Add($d.Trim()) }
         }
     }
+    if ($PSScriptRoot) { $dirs.Add($PSScriptRoot) }
 
-    # 2) 其次找 PATH 里的同名命令
-    $bare = [System.IO.Path]::GetFileNameWithoutExtension($fileName)
-    $cmd  = Get-Command $bare -ErrorAction SilentlyContinue
-    if ($cmd) {
-        & $cmd.Source $Name | Out-Null
-        return
+    $seen = @{}
+    $out  = New-Object System.Collections.Generic.List[string]
+    foreach ($d in $dirs) {
+        if ($seen.ContainsKey($d)) { continue }
+        $seen[$d] = $true
+        $out.Add($d)
     }
+    return $out
+}
 
-    throw "找不到 $fileName，请先运行 install.ps1 安装脚手架命令。"
+function Get-Scaffolds {
+    $found = @{}
+    $order = New-Object System.Collections.Generic.List[string]
+
+    foreach ($dir in (Get-ScaffoldDirs)) {
+        if (-not (Test-Path -LiteralPath $dir)) { continue }
+        $files = Get-ChildItem -LiteralPath $dir -Filter 'new-*.ps1' -File -ErrorAction SilentlyContinue
+        foreach ($f in $files) {
+            $id = $f.BaseName
+            if ($found.ContainsKey($id)) { continue }   # 先找到的优先
+
+            $label = $null
+            $head = Get-Content -LiteralPath $f.FullName -TotalCount 20 -ErrorAction SilentlyContinue
+            foreach ($line in $head) {
+                if ($line -match '^\s*#\s*@label\s+(.+?)\s*$') { $label = $Matches[1]; break }
+            }
+            if (-not $label) {
+                # 没有 @label 时回退到文件名（new-py → Py）
+                $label = (Get-Culture).TextInfo.ToTitleCase(($id -replace '^new-', ''))
+            }
+
+            $found[$id] = [pscustomobject]@{ Id = $id; Label = $label; Path = $f.FullName }
+            $order.Add($id)
+        }
+    }
+    return @($order | ForEach-Object { $found[$_] } | Sort-Object Label)
+}
+
+# 调用指定的脚手架脚本建项目
+function Invoke-Scaffold {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name
+    )
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Path $Name | Out-Null
 }
 
 # ══════════════════════════════════════════════════════════
@@ -248,14 +286,21 @@ try {
         New-Item -ItemType Directory -Path $script:Root -Force | Out-Null
     }
 
-    # ── 面板 1：选择环境 ──
+    # ── 面板 1：选择环境（列表由脚手架自动发现生成）──
+    $scaffolds = Get-Scaffolds
+    $menu = @()
+    foreach ($s in $scaffolds) { $menu += "新建 $($s.Label) 项目" }
+    $menu += '打开已有项目'
+    $menu += '打开多项目工作区'
+
     $choice = Show-ListDialog -Title $script:AppTitle `
                               -Prompt '选择要创建或打开的环境：' `
-                              -Items @('新建 C 项目', '新建 Python 项目', '打开已有项目', '打开多项目工作区')
+                              -Items $menu
     if (-not $choice) { exit 0 }
 
     # ── 新建项目 ──
-    if ($choice -eq '新建 C 项目' -or $choice -eq '新建 Python 项目') {
+    $picked = $scaffolds | Where-Object { "新建 $($_.Label) 项目" -eq $choice } | Select-Object -First 1
+    if ($picked) {
         $name = Show-InputDialog -Title '新建项目' -Prompt '给项目起个名字：' -DefaultValue '我的新项目'
         if (-not $name) { exit 0 }
 
@@ -270,27 +315,35 @@ try {
             exit 1
         }
 
-        $kind = if ($choice -eq '新建 C 项目') { 'c' } else { 'py' }
         try {
-            Invoke-Scaffold -Kind $kind -Name $name
+            Invoke-Scaffold -Path $picked.Path -Name $name
         }
         catch {
             Show-Message -Icon Error -Title '创建失败' -Text $_.Exception.Message
             exit 1
         }
 
-        if (Test-Path -LiteralPath $dir) {
-            Open-InVSCode -Path $dir -CodeCmd $codeCmd
-        }
-        else {
+        if (-not (Test-Path -LiteralPath $dir)) {
             Show-Message -Icon Error -Title '创建失败' -Text @"
 脚手架执行完了，但没有生成目录：
 
 $dir
 
-请检查 new-c / new-py 是否可用（运行 install.ps1 安装）。
+可以在 PowerShell 里手动跑一次看报错：
+$($picked.Path) $name
 "@
             exit 1
+        }
+
+        Open-InVSCode -Path $dir -CodeCmd $codeCmd
+
+        # 脚手架发现缺工具链时会在项目里留下提示文件，这里再强提醒一次
+        if (Test-Path -LiteralPath (Join-Path $dir $script:WarningFileName)) {
+            Show-Message -Icon Warning -Title '⚠️ 缺少工具链' -Text @"
+项目已创建，但本机缺少它需要的工具链，现在还不能编译。
+
+已在项目里生成「$($script:WarningFileName)」，里面有安装方法。
+"@
         }
         exit 0
     }
@@ -316,7 +369,7 @@ $script:WorkspaceFile
     # ── 打开已有项目 ──
     $projects = Get-Projects
     if ($projects.Count -eq 0) {
-        Show-Message -Icon Information -Title '还没有项目' -Text "先新建一个 C 或 Python 项目吧。`n`n项目目录：$script:Root"
+        Show-Message -Icon Information -Title '还没有项目' -Text "先新建一个项目吧。`n`n项目目录：$script:Root"
         exit 0
     }
 

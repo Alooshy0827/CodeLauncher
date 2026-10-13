@@ -1,4 +1,5 @@
 #!/bin/bash
+# @label C
 # 一键新建 C 项目 —— 用法: new-c 项目名
 set -e
 
@@ -16,6 +17,16 @@ if [ -e "$DIR" ]; then
     echo "❌ 项目 '$NAME' 已存在: $DIR"
     exit 1
 fi
+
+# ── 检测编译器 ──
+# 注意：macOS 上有些命令可能只是占位存根，必须真的执行一次确认能输出版本号
+CC=""
+for c in cc clang gcc; do
+    if command -v "$c" >/dev/null 2>&1 && "$c" --version >/dev/null 2>&1; then
+        CC="$(command -v "$c")"
+        break
+    fi
+done
 
 # 目录结构
 mkdir -p "$DIR/src" "$DIR/build" "$DIR/.vscode"
@@ -117,6 +128,34 @@ int main(void)
 }
 EOF
 
+# ── 工具链缺失时的项目内强提示 ──
+if [ -z "$CC" ]; then
+    cat > "$DIR/!缺少工具链.md" <<'EOF'
+# ⚠️ 这个项目现在还编译不了
+
+缺少 **C 编译器**（`cc`、`clang`、`gcc` 都没找到）。
+
+## 怎么装
+
+打开「终端」，运行：
+
+```bash
+xcode-select --install
+```
+
+会弹出一个安装窗口，点「安装」等它跑完即可。
+这一步同时会装好 `clang`、`make`、`git` 等基础工具。
+
+## 装完之后
+
+1. 重开一个终端，运行 `cc --version` 确认能输出版本号
+2. **删掉本文件**
+3. 回到 VS Code，按 `Cmd+Shift+B` 编译，`F5` 调试
+
+> 项目本身不用重建 —— 编译器装好，这个项目直接就能用。
+EOF
+fi
+
 echo "✅ 项目创建成功: $DIR"
 echo ""
 echo "结构:"
@@ -124,6 +163,13 @@ echo "  $NAME/"
 echo "  ├── src/main.c      ← 在这里写代码"
 echo "  ├── .vscode/        ← 配置（已配好，不用管）"
 echo "  └── build/          ← 编译产物"
+echo ""
+if [ -n "$CC" ]; then
+    echo "编译器: $CC"
+else
+    echo "⚠️  没有检测到 C 编译器！"
+    echo "   已在项目里生成 !缺少工具链.md，打开它看安装方法。"
+fi
 echo ""
 echo "下一步:"
 echo "  code \"$DIR\"          用 VS Code 打开"

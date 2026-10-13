@@ -36,7 +36,11 @@ if (-not (Test-Path -LiteralPath $BinDir)) {
     New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
 }
 
-$files = @('new-c.ps1', 'new-py.ps1', 'CodeLauncher.ps1', 'CodeLauncher.cmd')
+# 自动收录目录下所有脚本 —— 以后新增环境脚手架不用改这个文件
+$files = @(Get-ChildItem -LiteralPath $SourceDir -Filter '*.ps1' -File -ErrorAction SilentlyContinue |
+           Select-Object -ExpandProperty Name)
+$files += 'CodeLauncher.cmd'
+
 $copied = 0
 foreach ($f in $files) {
     $src = Join-Path $SourceDir $f
