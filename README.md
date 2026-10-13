@@ -2,6 +2,8 @@
 
 选好环境，自动在 VS Code 新窗口打开 —— 目录结构、编译与调试配置一次生成，不用再手动建目录、配 `tasks.json`、敲命令。
 
+**适配系统**　macOS（Apple Silicon）｜ Windows
+
 **适配环境**　C ｜ Python
 
 **适配软件**　<img src="assets/vscode.png" width="20"> Visual Studio Code
