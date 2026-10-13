@@ -51,3 +51,24 @@ cd macos
 
 - 项目根目录路径目前是写死的：macOS 是 `~/VS Code/`，Windows 是 `%USERPROFILE%\VS Code\`
 - 要改的话，编辑 `macos/main.swift` 顶部的 `root` 和 `windows/CodeLauncher.ps1` 顶部的 `$script:Root`
+
+## README 标题图标的对齐方式
+
+`assets/` 下有两个图标，用途不同：
+
+| 文件 | 用途 |
+|---|---|
+| `appicon.png` | 干净的方形图标原图（256×256） |
+| `appicon-title.png` | README 标题专用（256×316，底部多 60px 透明边距） |
+
+标题用的是后者，配合 `align="absmiddle"`：
+
+```html
+# <img src="assets/appicon-title.png" width="36" align="absmiddle"> CodeLauncher
+```
+
+**为什么要留白**：GitHub 会把 `style` 和 `class` 属性清洗掉，只剩 `align` 可用来控制垂直对齐。而 `align="absmiddle"` 是把整张图（含透明区）在行内居中 —— 底部那 60px 透明区会把可见图标往上顶约 3px，正好抵消掉默认的偏低。实测偏差从 +3.5px 收敛到 −0.5px。
+
+改图标时记得**重新导出这两个文件**：先出方形原图，再在底部补 60px 透明边距。
+
+> 别用 `align="middle"` —— 实测偏低 11.5px，比默认的偏高 6.5px 还糟。

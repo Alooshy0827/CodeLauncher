@@ -1,4 +1,4 @@
-# <img src="assets/appicon.png" width="36"> CodeLauncher
+# <img src="assets/appicon-title.png" width="36" align="absmiddle"> CodeLauncher
 
 选好环境，自动在 VS Code 新窗口打开 —— 目录结构、编译与调试配置一次生成，不用再手动建目录、配 `tasks.json`、敲命令。
 
