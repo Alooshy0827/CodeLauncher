@@ -1,0 +1,56 @@
+#!/bin/bash
+# 一键新建 Python 项目 —— 用法: new-py 项目名
+set -e
+
+NAME="$1"
+if [ -z "$NAME" ]; then
+    echo "用法: new-py 项目名"
+    echo "例如: new-py 我的脚本"
+    exit 1
+fi
+
+ROOT="$HOME/VS Code"
+DIR="$ROOT/$NAME"
+
+if [ -e "$DIR" ]; then
+    echo "❌ 项目 '$NAME' 已存在: $DIR"
+    exit 1
+fi
+
+mkdir -p "$DIR/.vscode"
+
+# ── 创建虚拟环境 ──
+echo "正在创建虚拟环境（几秒钟）..."
+/opt/homebrew/bin/python3 -m venv "$DIR/.venv"
+echo "  ✅ 虚拟环境已建好"
+
+# ── main.py ──
+cat > "$DIR/main.py" <<'EOF'
+def main():
+    print("你好，Python！")
+
+
+if __name__ == "__main__":
+    main()
+EOF
+
+# ── .vscode/settings.json（指定解释器 + 自动激活 venv）──
+cat > "$DIR/.vscode/settings.json" <<'EOF'
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.terminal.activateEnvironment": true
+}
+EOF
+
+echo ""
+echo "✅ 项目创建成功: $DIR"
+echo ""
+echo "结构:"
+echo "  $NAME/"
+echo "  ├── main.py         ← 在这里写代码"
+echo "  ├── .venv/          ← Python 虚拟环境（已建好）"
+echo "  └── .vscode/        ← 配置"
+echo ""
+echo "下一步:"
+echo "  code \"$DIR\"          用 VS Code 打开"
+echo "  然后按 F5 运行，或者终端里 python main.py"
