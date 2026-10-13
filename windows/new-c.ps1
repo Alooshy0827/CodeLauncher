@@ -326,11 +326,51 @@ Write-Host "工具链: $toolName"
 Write-Host ''
 
 if ($toolchain -eq 'none') {
+    $notice = @'
+# ⚠️ 这个项目现在还编译不了
+
+缺少 **C 编译器**（`gcc`、`clang`、`cl` 都没找到）。
+
+## 怎么装（推荐 MinGW-w64）
+
+在 PowerShell 里运行：
+
+```powershell
+winget install --id BrechtSanders.WinLibs.POSIX.UCRT
+```
+
+装完**重开一个终端**（PATH 才会生效）。
+
+也可以用 MSYS2：
+
+```powershell
+winget install --id MSYS2.MSYS2
+# 然后打开 MSYS2 终端运行：
+# pacman -S mingw-w64-ucrt-x86_64-gcc
+```
+
+## 怎么确认装好了
+
+重开终端后运行：
+
+```powershell
+gcc --version
+```
+
+能输出版本号就成了。
+
+## 装完之后
+
+1. **删掉本文件**
+2. 回到 VS Code，按 `Ctrl+Shift+B` 编译，`F5` 调试
+
+> 项目本身不用重建 —— 编译器装好，这个项目直接就能用。
+> 如果 `Ctrl+Shift+B` 报错说找不到 gcc，重启一次 VS Code 让它重新读取 PATH。
+'@
+    Write-Text (Join-Path $Dir '!缺少工具链.md') $notice
+
     Write-Host '⚠️  没有检测到 C 编译器，现在还不能编译。' -ForegroundColor Yellow
-    Write-Host '   推荐安装 MinGW-w64（任选其一）:' -ForegroundColor Yellow
-    Write-Host '     winget install --id BrechtSanders.WinLibs.POSIX.UCRT' -ForegroundColor Yellow
-    Write-Host '     或到 https://www.msys2.org 安装 MSYS2 后: pacman -S mingw-w64-ucrt-x86_64-gcc' -ForegroundColor Yellow
-    Write-Host '   装完重开终端，这个项目无需重建，直接就能编译。' -ForegroundColor Yellow
+    Write-Host '   已在项目里生成 !缺少工具链.md，打开它看安装方法。' -ForegroundColor Yellow
     Write-Host ''
 }
 
