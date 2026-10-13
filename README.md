@@ -4,7 +4,7 @@
 
 **适配环境**　C ｜ Python
 
-**已适配软件**　<img src="assets/vscode.png" width="20"> Visual Studio Code
+**适配软件**　<img src="assets/vscode.png" width="20"> Visual Studio Code
 
 ## 安装
 
