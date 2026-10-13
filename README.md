@@ -8,17 +8,27 @@
 
 ## 安装
 
-**macOS**
+**下载安装包**（推荐）→ [Releases](https://github.com/Alooshy0827/CodeLauncher/releases/latest)
+
+| 平台 | 文件 |
+|---|---|
+| macOS（Apple Silicon） | `CodeLauncher-macOS-arm64.zip` |
+| Windows | `CodeLauncher-Windows.zip` |
+
+> **macOS**：首次打开需**右键 →「打开」**（应用未签名，双击会被 Gatekeeper 拦下）
+>
+> **Windows**：解压前先右键压缩包 → 属性 → **解除锁定**，否则 PowerShell 会拒绝执行脚本
+
+**从源码安装**
 
 ```bash
+# macOS
 git clone https://github.com/Alooshy0827/CodeLauncher.git
 cd CodeLauncher/macos && ./build.sh --install
-cp new-c new-py ~/bin/
+cp new-c new-py ~/bin/     # 可选：命令行建项目
 ```
 
-**Windows**
-
-下载本仓库 → 右键 `windows/install.ps1` → 使用 PowerShell 运行
+**Windows**：下载本仓库 → 右键 `windows/install.ps1` → 使用 PowerShell 运行
 
 ## 依赖
 
