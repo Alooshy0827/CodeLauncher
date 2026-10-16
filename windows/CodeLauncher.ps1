@@ -120,19 +120,22 @@ function Show-ListDialog {
     }
 }
 
-# 文本输入框（对应 macOS 版的 NSAlert + NSTextField）
-function Show-InputDialog {
+# ── 向导的一步 ──
+# 对应 macOS 版的主按钮 / 上一步 / 取消 三键布局。
+# 返回值: @{ Nav = 'next'|'back'|'cancel'; Value = 控件当前值 }
+function Show-WizardStep {
     param(
         [Parameter(Mandatory)][string]$Title,
         [Parameter(Mandatory)][string]$Prompt,
-        [string]$DefaultValue = '',
-        [string]$OkText       = '创建'
+        [System.Windows.Forms.Control]$Accessory,
+        [string]$NextText = '下一步',
+        [switch]$AllowBack
     )
 
     $form = New-Object System.Windows.Forms.Form
     try {
         $form.Text            = $Title
-        $form.ClientSize      = New-Object System.Drawing.Size(400, 158)
+        $form.ClientSize      = New-Object System.Drawing.Size(420, 210)
         $form.StartPosition   = 'CenterScreen'
         $form.FormBorderStyle = 'FixedDialog'
         $form.MaximizeBox     = $false
@@ -141,39 +144,65 @@ function Show-InputDialog {
 
         $label = New-Object System.Windows.Forms.Label
         $label.Text     = $Prompt
-        $label.Location = New-Object System.Drawing.Point(18, 20)
-        $label.Size     = New-Object System.Drawing.Size(364, 20)
+        $label.Location = New-Object System.Drawing.Point(18, 16)
+        $label.Size     = New-Object System.Drawing.Size(384, 68)
         $form.Controls.Add($label)
 
-        $box = New-Object System.Windows.Forms.TextBox
-        $box.Location = New-Object System.Drawing.Point(18, 48)
-        $box.Size     = New-Object System.Drawing.Size(364, 25)
-        $box.Text     = $DefaultValue
-        $form.Controls.Add($box)
+        if ($Accessory) {
+            $Accessory.Location = New-Object System.Drawing.Point(18, 92)
+            $Accessory.Size     = New-Object System.Drawing.Size(384, 26)
+            $form.Controls.Add($Accessory)
+        }
 
-        $ok = New-Object System.Windows.Forms.Button
-        $ok.Text         = $OkText
-        $ok.DialogResult = [System.Windows.Forms.DialogResult]::OK
-        $ok.Location     = New-Object System.Drawing.Point(212, 102)
-        $ok.Size         = New-Object System.Drawing.Size(80, 30)
-        $form.Controls.Add($ok)
+        # 按钮从右往左排：主按钮最右，取消最左
+        $btnY = 158
+        $next = New-Object System.Windows.Forms.Button
+        $next.Text         = $NextText
+        $next.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $next.Size         = New-Object System.Drawing.Size(88, 30)
+        $next.Location     = New-Object System.Drawing.Point(314, $btnY)
+        $form.Controls.Add($next)
 
         $cancel = New-Object System.Windows.Forms.Button
         $cancel.Text         = '取消'
         $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-        $cancel.Location     = New-Object System.Drawing.Point(302, 102)
-        $cancel.Size         = New-Object System.Drawing.Size(80, 30)
+        $cancel.Size         = New-Object System.Drawing.Size(88, 30)
+        $cancel.Location     = New-Object System.Drawing.Point(218, $btnY)
         $form.Controls.Add($cancel)
 
-        $form.AcceptButton = $ok
-        $form.CancelButton = $cancel
-        $form.Add_Shown({ $box.SelectAll(); $box.Focus() })
-
-        if ($form.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            $t = $box.Text.Trim()
-            if ($t) { return $t }
+        if ($AllowBack) {
+            $back = New-Object System.Windows.Forms.Button
+            $back.Text         = '上一步'
+            # 借用 Retry 表示「上一步」，和 OK / Cancel 区分开
+            $back.DialogResult = [System.Windows.Forms.DialogResult]::Retry
+            $back.Size         = New-Object System.Drawing.Size(88, 30)
+            $back.Location     = New-Object System.Drawing.Point(122, $btnY)
+            $form.Controls.Add($back)
         }
-        return $null
+
+        $form.AcceptButton = $next
+        $form.CancelButton = $cancel
+
+        if ($Accessory -is [System.Windows.Forms.TextBox]) {
+            $form.Add_Shown({ $Accessory.SelectAll(); $Accessory.Focus() })
+        }
+
+        $result = $form.ShowDialog()
+
+        $nav = 'cancel'
+        if ($result -eq [System.Windows.Forms.DialogResult]::OK) { $nav = 'next' }
+        elseif ($AllowBack -and $result -eq [System.Windows.Forms.DialogResult]::Retry) { $nav = 'back' }
+
+        # 值必须在 Dispose 之前取出来，否则控件已经没了
+        $value = $null
+        if ($Accessory -is [System.Windows.Forms.ComboBox]) {
+            if ($Accessory.SelectedItem) { $value = $Accessory.SelectedItem.ToString() }
+        }
+        elseif ($Accessory -is [System.Windows.Forms.TextBox]) {
+            $value = $Accessory.Text.Trim()
+        }
+
+        return [pscustomobject]@{ Nav = $nav; Value = $value }
     }
     finally {
         $form.Dispose()
@@ -282,79 +311,67 @@ try {
         exit 1
     }
 
-    if (-not (Test-Path -LiteralPath $script:Root)) {
-        New-Item -ItemType Directory -Path $script:Root -Force | Out-Null
-    }
+    # 注意：这里**不**预建 $script:Root 目录。
+    # 根目录推迟到第 3 步真正创建项目时才建，这样用户在前面任何一步
+    # 取消，磁盘上都不会留下任何东西（Get-Projects 对目录不存在是安全的）。
 
-    # ── 面板 1：选择环境（列表由脚手架自动发现生成）──
+    # ══════════════════════════════════════════════════════
+    #  三步向导
+    #
+    #  第 1 步选环境、第 2 步填名字、第 3 步确认。
+    #  前两步**不碰磁盘**，只有第 3 步点「创建」才真正执行脚手架 ——
+    #  中途随时可以「上一步」改回去，或者「取消」走人，
+    #  不会留下一个建完就后悔的项目白占空间。
+    # ══════════════════════════════════════════════════════
+
     $scaffolds = Get-Scaffolds
     $menu = @()
     foreach ($s in $scaffolds) { $menu += "新建 $($s.Label) 项目" }
     $menu += '打开已有项目'
     $menu += '打开多项目工作区'
 
-    $choice = Show-ListDialog -Title $script:AppTitle `
-                              -Prompt '选择要创建或打开的环境：' `
-                              -Items $menu
-    if (-not $choice) { exit 0 }
+    $noWriteHint = '（这一步还没有写入任何文件）'
 
-    # ── 新建项目 ──
-    $picked = $scaffolds | Where-Object { "新建 $($_.Label) 项目" -eq $choice } | Select-Object -First 1
-    if ($picked) {
-        $name = Show-InputDialog -Title '新建项目' -Prompt '给项目起个名字：' -DefaultValue '我的新项目'
-        if (-not $name) { exit 0 }
+    $stage    = 0
+    $picked   = $null
+    $name     = ''
+    $envIndex = 0
 
-        if ($name -match '[\\/:*?"<>|]') {
-            Show-Message -Icon Warning -Title '名字不合法' -Text "项目名不能包含这些字符： \ / : * ? `" < > |"
-            exit 1
-        }
+    # 注意：PowerShell 里 switch 内的 continue 等价于跳出 switch（而不是
+    # 跳过 while 的剩余部分）。这里 switch 之后没有别的语句，所以「留在当前
+    # 步骤」的效果正好成立。若以后要在 switch 后面加代码，记得改成显式判断。
+    while ($true) {
+        switch ($stage) {
 
-        $dir = Join-Path $script:Root $name
-        if (Test-Path -LiteralPath $dir) {
-            Show-Message -Icon Warning -Title '项目已存在' -Text "「$name」已经存在了。`n`n$dir"
-            exit 1
-        }
+        # ── 第 1 步：选环境 ──
+        0 {
+            $combo = New-Object System.Windows.Forms.ComboBox
+            $combo.DropDownStyle = 'DropDownList'
+            [void]$combo.Items.AddRange([object[]]$menu)
+            if ($menu.Count -gt 0) {
+                $combo.SelectedIndex = if ($envIndex -ge 0 -and $envIndex -lt $menu.Count) { $envIndex } else { 0 }
+            }
 
-        try {
-            Invoke-Scaffold -Path $picked.Path -Name $name
-        }
-        catch {
-            Show-Message -Icon Error -Title '创建失败' -Text $_.Exception.Message
-            exit 1
-        }
+            $r = Show-WizardStep -Title '环境启动器 · 第 1 步，共 3 步' `
+                                 -Prompt "选择要创建或打开的环境：`n`n$noWriteHint" `
+                                 -Accessory $combo
+            if ($r.Nav -eq 'cancel') { exit 0 }
 
-        if (-not (Test-Path -LiteralPath $dir)) {
-            Show-Message -Icon Error -Title '创建失败' -Text @"
-脚手架执行完了，但没有生成目录：
+            if ($combo.SelectedIndex -ge 0) { $envIndex = $combo.SelectedIndex }
+            $choice = $r.Value
 
-$dir
+            $picked = $scaffolds | Where-Object { "新建 $($_.Label) 项目" -eq $choice } | Select-Object -First 1
 
-可以在 PowerShell 里手动跑一次看报错：
-$($picked.Path) $name
-"@
-            exit 1
-        }
-
-        Open-InVSCode -Path $dir -CodeCmd $codeCmd
-
-        # 脚手架发现缺工具链时会在项目里留下提示文件，这里再强提醒一次
-        if (Test-Path -LiteralPath (Join-Path $dir $script:WarningFileName)) {
-            Show-Message -Icon Warning -Title '⚠️ 缺少工具链' -Text @"
-项目已创建，但本机缺少它需要的工具链，现在还不能编译。
-
-已在项目里生成「$($script:WarningFileName)」，里面有安装方法。
-"@
-        }
-        exit 0
-    }
-
-    # ── 多项目工作区 ──
-    if ($choice -eq '打开多项目工作区') {
-        if (Test-Path -LiteralPath $script:WorkspaceFile) {
-            Open-InVSCode -Path $script:WorkspaceFile -CodeCmd $codeCmd
-        }
-        else {
-            Show-Message -Icon Warning -Title '工作区不存在' -Text @"
+            if ($picked) {
+                $stage = 1
+            }
+            elseif ($choice -eq '打开多项目工作区') {
+                # 只读操作，不写磁盘
+                if (Test-Path -LiteralPath $script:WorkspaceFile) {
+                    Open-InVSCode -Path $script:WorkspaceFile -CodeCmd $codeCmd
+                }
+                else {
+                    Show-Message -Icon Warning -Title '工作区不存在' -Text @"
 找不到工作区文件：
 
 $script:WorkspaceFile
@@ -362,22 +379,101 @@ $script:WorkspaceFile
 可以在 VS Code 里用 “文件 → 将文件夹添加到工作区”
 自己建一个，另存为该路径即可。
 "@
+                }
+                exit 0
+            }
+            else {
+                $projects = Get-Projects
+                if ($projects.Count -eq 0) {
+                    Show-Message -Icon Information -Title '还没有项目' -Text "先新建一个项目吧。`n`n项目目录：$script:Root"
+                }
+                else {
+                    $sel = Show-ListDialog -Title '打开项目' -Prompt '选择要打开的项目：' -Items $projects -OkText '打开'
+                    if ($sel) { Open-InVSCode -Path (Join-Path $script:Root $sel) -CodeCmd $codeCmd }
+                }
+                exit 0
+            }
         }
-        exit 0
-    }
 
-    # ── 打开已有项目 ──
-    $projects = Get-Projects
-    if ($projects.Count -eq 0) {
-        Show-Message -Icon Information -Title '还没有项目' -Text "先新建一个项目吧。`n`n项目目录：$script:Root"
-        exit 0
-    }
+        # ── 第 2 步：填项目名 ──
+        1 {
+            $box = New-Object System.Windows.Forms.TextBox
+            $box.Text = if ($name) { $name } else { '我的新项目' }
 
-    $sel = Show-ListDialog -Title '打开项目' -Prompt '选择要打开的项目：' -Items $projects -OkText '打开'
-    if ($sel) {
-        Open-InVSCode -Path (Join-Path $script:Root $sel) -CodeCmd $codeCmd
+            $r = Show-WizardStep -Title '环境启动器 · 第 2 步，共 3 步' `
+                                 -Prompt "给「$($picked.Label)」项目起个名字：`n`n$noWriteHint" `
+                                 -Accessory $box -AllowBack
+            if ($r.Nav -eq 'cancel') { exit 0 }
+            if ($r.Nav -eq 'back') { $stage = 0; continue }
+
+            $name = $r.Value
+
+            # 校验不过就留在本步让用户改，而不是建到一半才报错
+            if (-not $name) {
+                Show-Message -Icon Warning -Title '名字不能为空' -Text '请给项目起个名字。'
+                continue
+            }
+            if ($name -match '[\\/:*?"<>|]') {
+                Show-Message -Icon Warning -Title '名字不合法' -Text "项目名不能包含这些字符： \ / : * ? `" < > |"
+                continue
+            }
+            if (Test-Path -LiteralPath (Join-Path $script:Root $name)) {
+                Show-Message -Icon Warning -Title '项目已存在' -Text "「$name」已经存在了。`n`n换个名字吧。"
+                continue
+            }
+            $stage = 2
+        }
+
+        # ── 第 3 步：确认后才真正创建 ──
+        2 {
+            $dir = Join-Path $script:Root $name
+
+            $r = Show-WizardStep -Title '环境启动器 · 第 3 步，共 3 步' `
+                                 -Prompt "点「创建」才会真正写入磁盘。`n`n环境：$($picked.Label)`n名称：$name`n位置：$dir" `
+                                 -NextText '创建' -AllowBack
+            if ($r.Nav -eq 'cancel') { exit 0 }
+            if ($r.Nav -eq 'back') { $stage = 1; continue }
+
+            # ★★★ 整个程序里唯一产生副作用的地方 ★★★
+            if (-not (Test-Path -LiteralPath $script:Root)) {
+                New-Item -ItemType Directory -Path $script:Root -Force | Out-Null
+            }
+            try {
+                Invoke-Scaffold -Path $picked.Path -Name $name
+            }
+            catch {
+                Show-Message -Icon Error -Title '创建失败' -Text $_.Exception.Message
+                exit 1
+            }
+
+            if (-not (Test-Path -LiteralPath $dir)) {
+                Show-Message -Icon Error -Title '创建失败' -Text @"
+脚手架执行完了，但没有生成目录：
+
+$dir
+
+可以在 PowerShell 里手动跑一次看报错：
+$($picked.Path) $name
+"@
+                exit 1
+            }
+
+            Open-InVSCode -Path $dir -CodeCmd $codeCmd
+
+            # 脚手架发现缺工具链时会在项目里留下提示文件，这里再强提醒一次
+            if (Test-Path -LiteralPath (Join-Path $dir $script:WarningFileName)) {
+                Show-Message -Icon Warning -Title '⚠️ 缺少工具链' -Text @"
+项目已创建，但本机缺少它需要的工具链，现在还不能编译。
+
+已在项目里生成「$($script:WarningFileName)」，里面有安装方法。
+"@
+            }
+            exit 0
+        }
+
+        default { exit 0 }
+        }
     }
-    exit 0
 }
 catch {
     Show-Message -Icon Error -Title "$script:AppTitle 出错了" -Text $_.Exception.Message

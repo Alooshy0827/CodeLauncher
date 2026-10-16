@@ -117,62 +117,119 @@ func discoverScaffolds() -> [Scaffold] {
 //  面板
 // ══════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════
+//  三步向导
+//
+//  第 1 步选环境、第 2 步填名字、第 3 步确认。
+//  前两步**不碰磁盘**，只有第 3 步点「创建」才真正执行脚手架 ——
+//  中途随时可以「上一步」改回去，或「取消」走人，
+//  不会留下一个建完就后悔的项目白占空间。
+// ══════════════════════════════════════════════════════════
+
+enum NavResult {
+    case next
+    case back
+    case cancel
+}
+
 enum Choice {
     case create(Scaffold)
     case openExisting
     case openWorkspace
 }
 
-func chooseEnvironment(_ scaffolds: [Scaffold]) -> Choice? {
+// 步骤标题里统一带上进度，让用户知道还有几步
+func stepTitle(_ n: Int) -> String {
+    return "环境启动器 · 第 \(n) 步，共 3 步"
+}
+
+// NO_WRITE_HINT 反复出现在前两步，明确告诉用户此时什么都没发生
+let noWriteHint = "（这一步还没有写入任何文件）"
+
+// ── 第 1 步：选环境 ──
+func chooseEnvironment(_ scaffolds: [Scaffold], previousIndex: Int) -> Choice? {
     var titles = scaffolds.map { "新建 \($0.label) 项目" }
     titles.append("打开已有项目")
     titles.append("打开多项目工作区")
 
-    var index = -1
+    var choice: Choice? = nil
     onMain {
         let alert = NSAlert()
-        alert.messageText = "环境启动器"
-        alert.informativeText = "选择要创建或打开的环境："
+        alert.messageText = stepTitle(1)
+        alert.informativeText = "选择要创建或打开的环境：\n\n\(noWriteHint)"
         alert.addButton(withTitle: "下一步")
         alert.addButton(withTitle: "取消")
 
-        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 280, height: 25), pullsDown: false)
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 300, height: 25), pullsDown: false)
         popup.addItems(withTitles: titles)
+        if previousIndex >= 0 && previousIndex < titles.count {
+            popup.selectItem(at: previousIndex)      // 从第 2 步退回时保留原选择
+        }
         alert.accessoryView = popup
         NSApp.activate(ignoringOtherApps: true)
 
         if alert.runModal() == .alertFirstButtonReturn {
-            index = popup.indexOfSelectedItem
+            let i = popup.indexOfSelectedItem
+            if i < scaffolds.count { choice = .create(scaffolds[i]) }
+            else if i == scaffolds.count { choice = .openExisting }
+            else { choice = .openWorkspace }
         }
     }
-
-    guard index >= 0 else { return nil }
-    if index < scaffolds.count { return .create(scaffolds[index]) }
-    return index == scaffolds.count ? .openExisting : .openWorkspace
+    return choice
 }
 
-func askName(defaultName: String) -> String? {
-    var result: String? = nil
+// ── 第 2 步：填项目名 ──
+func askProjectName(envLabel: String, previous: String) -> (NavResult, String) {
+    var nav: NavResult = .cancel
+    var name = previous
     onMain {
         let alert = NSAlert()
-        alert.messageText = "新建项目"
-        alert.informativeText = "给项目起个名字："
-        alert.addButton(withTitle: "创建")
+        alert.messageText = stepTitle(2)
+        alert.informativeText = "给「\(envLabel)」项目起个名字：\n\n\(noWriteHint)"
+        alert.addButton(withTitle: "下一步")
+        alert.addButton(withTitle: "上一步")
         alert.addButton(withTitle: "取消")
 
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
-        field.stringValue = defaultName
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        field.stringValue = previous.isEmpty ? "我的新项目" : previous
         field.placeholderString = "项目名"
         alert.accessoryView = field
         alert.window.initialFirstResponder = field
         NSApp.activate(ignoringOtherApps: true)
 
-        if alert.runModal() == .alertFirstButtonReturn {
-            let t = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            result = t.isEmpty ? nil : t
-        }
+        let resp = alert.runModal()
+        name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if resp == .alertFirstButtonReturn { nav = .next }
+        else if resp == .alertSecondButtonReturn { nav = .back }
+        else { nav = .cancel }
     }
-    return result
+    return (nav, name)
+}
+
+// ── 第 3 步：确认 ──
+func confirmCreate(envLabel: String, name: String, dir: String) -> NavResult {
+    var nav: NavResult = .cancel
+    onMain {
+        let alert = NSAlert()
+        alert.messageText = stepTitle(3)
+        alert.informativeText = """
+            点「创建」才会真正写入磁盘。
+
+            环境：\(envLabel)
+            名称：\(name)
+            位置：\(dir)
+            """
+        alert.addButton(withTitle: "创建")
+        alert.addButton(withTitle: "上一步")
+        alert.addButton(withTitle: "取消")
+        NSApp.activate(ignoringOtherApps: true)
+
+        let resp = alert.runModal()
+        if resp == .alertFirstButtonReturn { nav = .next }
+        else if resp == .alertSecondButtonReturn { nav = .back }
+        else { nav = .cancel }
+    }
+    return nav
 }
 
 func chooseFromList(title: String, prompt: String, items: [String]) -> String? {
@@ -184,7 +241,7 @@ func chooseFromList(title: String, prompt: String, items: [String]) -> String? {
         alert.addButton(withTitle: "打开")
         alert.addButton(withTitle: "取消")
 
-        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 280, height: 25), pullsDown: false)
+        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 300, height: 25), pullsDown: false)
         popup.addItems(withTitles: items)
         alert.accessoryView = popup
         NSApp.activate(ignoringOtherApps: true)
@@ -253,49 +310,8 @@ guard let codePath = findVSCode() else {
     exit(1)
 }
 
-guard let choice = chooseEnvironment(scaffolds) else { exit(0) }
-
-switch choice {
-
-case .create(let scaffold):
-    guard let name = askName(defaultName: "我的新项目") else { exit(0) }
-    let dir = "\(root)/\(name)"
-
-    if FileManager.default.fileExists(atPath: dir) {
-        alertBox("项目已存在", "「\(name)」已经存在了。")
-        exit(1)
-    }
-
-    _ = runShell("\(shQuote(scaffold.path)) \(shQuote(name))")
-
-    guard FileManager.default.fileExists(atPath: dir) else {
-        alertBox("创建失败",
-                 "脚手架 \(scaffold.id) 没有生成项目目录。\n\n可以在「终端」里手动跑一次看报错：\n\(scaffold.path) \(name)")
-        exit(1)
-    }
-
-    openInVSCode(dir, codePath)
-
-    // 脚手架发现缺工具链时会在项目里留下一个提示文件，这里再强提醒一次
-    if FileManager.default.fileExists(atPath: "\(dir)/\(warningFileName)") {
-        alertBox("⚠️ 缺少工具链",
-                 "项目已创建，但本机缺少它需要的工具链，现在还不能编译。\n\n已在项目里生成「\(warningFileName)」，里面有安装方法。")
-    } else {
-        notify("✅ \(name)", "已在新窗口打开")
-    }
-    exit(0)
-
-case .openWorkspace:
-    let ws = "\(root)/c-projects.code-workspace"
-    if FileManager.default.fileExists(atPath: ws) {
-        openInVSCode(ws, codePath)
-    } else {
-        alertBox("工作区不存在",
-                 "找不到：\(ws)\n\n可以在 VS Code 里用「文件 → 将文件夹添加到工作区」自己建一个，另存为该路径。")
-    }
-    exit(0)
-
-case .openExisting:
+// 打开已有项目 / 工作区 —— 只读操作，不写磁盘，所以不进向导
+func openExistingProject(_ codePath: String) {
     let fm = FileManager.default
     let contents = (try? fm.contentsOfDirectory(atPath: root)) ?? []
     let projects = contents.filter { n in
@@ -308,11 +324,113 @@ case .openExisting:
 
     if projects.isEmpty {
         alertBox("还没有项目", "先新建一个项目吧。\n\n项目目录：\(root)")
-        exit(0)
+        return
     }
-
     if let sel = chooseFromList(title: "打开项目", prompt: "选择要打开的项目：", items: projects) {
         openInVSCode("\(root)/\(sel)", codePath)
     }
-    exit(0)
+}
+
+func openWorkspace(_ codePath: String) {
+    let ws = "\(root)/c-projects.code-workspace"
+    if FileManager.default.fileExists(atPath: ws) {
+        openInVSCode(ws, codePath)
+    } else {
+        alertBox("工作区不存在",
+                 "找不到：\(ws)\n\n可以在 VS Code 里用「文件 → 将文件夹添加到工作区」自己建一个，另存为该路径。")
+    }
+}
+
+// ══════════════════════════════════════════════════════════
+//  向导状态机
+//
+//  0 = 选环境 → 1 = 填名字 → 2 = 确认创建
+//  只有 stage == 2 且用户点了「创建」，才会真的写磁盘。
+// ══════════════════════════════════════════════════════════
+
+var stage = 0
+var pickedScaffold: Scaffold? = nil
+var projectName = ""
+var envIndex = 0
+
+while true {
+    switch stage {
+
+    // ── 第 1 步：选环境 ──
+    case 0:
+        guard let choice = chooseEnvironment(scaffolds, previousIndex: envIndex) else { exit(0) }
+        switch choice {
+        case .create(let s):
+            pickedScaffold = s
+            if let i = scaffolds.firstIndex(where: { $0.id == s.id }) { envIndex = i }
+            stage = 1
+        case .openExisting:
+            openExistingProject(codePath)
+            exit(0)
+        case .openWorkspace:
+            openWorkspace(codePath)
+            exit(0)
+        }
+
+    // ── 第 2 步：填项目名 ──
+    case 1:
+        guard let s = pickedScaffold else { stage = 0; continue }
+        let (nav, name) = askProjectName(envLabel: s.label, previous: projectName)
+        switch nav {
+        case .cancel:
+            exit(0)
+        case .back:
+            stage = 0
+        case .next:
+            // 校验不过就留在本步让用户改，而不是建到一半才报错
+            if name.isEmpty {
+                alertBox("名字不能为空", "请给项目起个名字。")
+                continue
+            }
+            if name.rangeOfCharacter(from: CharacterSet(charactersIn: "\\/:*?\"<>|")) != nil {
+                alertBox("名字不合法", "项目名不能包含这些字符：\\ / : * ? \" < > |")
+                continue
+            }
+            if FileManager.default.fileExists(atPath: "\(root)/\(name)") {
+                alertBox("项目已存在", "「\(name)」已经存在了。\n\n换个名字吧。")
+                continue
+            }
+            projectName = name
+            stage = 2
+        }
+
+    // ── 第 3 步：确认后才真正创建 ──
+    case 2:
+        guard let s = pickedScaffold else { stage = 0; continue }
+        let dir = "\(root)/\(projectName)"
+        switch confirmCreate(envLabel: s.label, name: projectName, dir: dir) {
+        case .cancel:
+            exit(0)
+        case .back:
+            stage = 1
+        case .next:
+            // ★★★ 整个程序里唯一产生副作用的地方 ★★★
+            _ = runShell("\(shQuote(s.path)) \(shQuote(projectName))")
+
+            guard FileManager.default.fileExists(atPath: dir) else {
+                alertBox("创建失败",
+                         "脚手架 \(s.id) 没有生成项目目录。\n\n可以在「终端」里手动跑一次看报错：\n\(s.path) \(projectName)")
+                exit(1)
+            }
+
+            openInVSCode(dir, codePath)
+
+            // 脚手架发现缺工具链时会在项目里留下一个提示文件，这里再强提醒一次
+            if FileManager.default.fileExists(atPath: "\(dir)/\(warningFileName)") {
+                alertBox("⚠️ 缺少工具链",
+                         "项目已创建，但本机缺少它需要的工具链，现在还不能编译。\n\n已在项目里生成「\(warningFileName)」，里面有安装方法。")
+            } else {
+                notify("✅ \(projectName)", "已在新窗口打开")
+            }
+            exit(0)
+        }
+
+    default:
+        exit(0)
+    }
 }
