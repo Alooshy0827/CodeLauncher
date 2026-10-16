@@ -143,9 +143,6 @@ func stepTitle(_ n: Int) -> String {
     return "环境启动器 · 第 \(n) 步，共 3 步"
 }
 
-// NO_WRITE_HINT 反复出现在前两步，明确告诉用户此时什么都没发生
-let noWriteHint = "（这一步还没有写入任何文件）"
-
 // ── 第 1 步：选环境 ──
 func chooseEnvironment(_ scaffolds: [Scaffold], previousIndex: Int) -> Choice? {
     var titles = scaffolds.map { "新建 \($0.label) 项目" }
@@ -156,7 +153,7 @@ func chooseEnvironment(_ scaffolds: [Scaffold], previousIndex: Int) -> Choice? {
     onMain {
         let alert = NSAlert()
         alert.messageText = stepTitle(1)
-        alert.informativeText = "选择要创建或打开的环境：\n\n\(noWriteHint)"
+        alert.informativeText = "选择要创建或打开的环境："
         alert.addButton(withTitle: "下一步")
         alert.addButton(withTitle: "取消")
 
@@ -185,7 +182,7 @@ func askProjectName(envLabel: String, previous: String) -> (NavResult, String) {
     onMain {
         let alert = NSAlert()
         alert.messageText = stepTitle(2)
-        alert.informativeText = "给「\(envLabel)」项目起个名字：\n\n\(noWriteHint)"
+        alert.informativeText = "给「\(envLabel)」项目起个名字："
         alert.addButton(withTitle: "下一步")
         alert.addButton(withTitle: "上一步")
         alert.addButton(withTitle: "取消")
@@ -213,8 +210,6 @@ func confirmCreate(envLabel: String, name: String, dir: String) -> NavResult {
         let alert = NSAlert()
         alert.messageText = stepTitle(3)
         alert.informativeText = """
-            点「创建」才会真正写入磁盘。
-
             环境：\(envLabel)
             名称：\(name)
             位置：\(dir)

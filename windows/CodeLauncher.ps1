@@ -330,8 +330,6 @@ try {
     $menu += '打开已有项目'
     $menu += '打开多项目工作区'
 
-    $noWriteHint = '（这一步还没有写入任何文件）'
-
     $stage    = 0
     $picked   = $null
     $name     = ''
@@ -353,7 +351,7 @@ try {
             }
 
             $r = Show-WizardStep -Title '环境启动器 · 第 1 步，共 3 步' `
-                                 -Prompt "选择要创建或打开的环境：`n`n$noWriteHint" `
+                                 -Prompt '选择要创建或打开的环境：' `
                                  -Accessory $combo
             if ($r.Nav -eq 'cancel') { exit 0 }
 
@@ -401,7 +399,7 @@ $script:WorkspaceFile
             $box.Text = if ($name) { $name } else { '我的新项目' }
 
             $r = Show-WizardStep -Title '环境启动器 · 第 2 步，共 3 步' `
-                                 -Prompt "给「$($picked.Label)」项目起个名字：`n`n$noWriteHint" `
+                                 -Prompt "给「$($picked.Label)」项目起个名字：" `
                                  -Accessory $box -AllowBack
             if ($r.Nav -eq 'cancel') { exit 0 }
             if ($r.Nav -eq 'back') { $stage = 0; continue }
@@ -429,7 +427,7 @@ $script:WorkspaceFile
             $dir = Join-Path $script:Root $name
 
             $r = Show-WizardStep -Title '环境启动器 · 第 3 步，共 3 步' `
-                                 -Prompt "点「创建」才会真正写入磁盘。`n`n环境：$($picked.Label)`n名称：$name`n位置：$dir" `
+                                 -Prompt "环境：$($picked.Label)`n名称：$name`n位置：$dir" `
                                  -NextText '创建' -AllowBack
             if ($r.Nav -eq 'cancel') { exit 0 }
             if ($r.Nav -eq 'back') { $stage = 1; continue }
