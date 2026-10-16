@@ -1,12 +1,12 @@
 ﻿#Requires -Version 5.1
 <#
-    CodeLauncher —— 环境启动器（Windows 版）
+    EnvLauncher —— 环境启动器（Windows 版）
 
     弹出一个面板，选择想要的环境，自动在 VS Code 新窗口打开。
     本文件是 macOS 版（Swift / Cocoa）的 Windows 移植版本。
 
     依赖：Windows 自带的 PowerShell 5.1 + .NET WinForms，无需安装任何东西。
-    用法：双击 CodeLauncher.cmd，或运行  powershell -File CodeLauncher.ps1
+    用法：双击 EnvLauncher.cmd，或运行  powershell -File EnvLauncher.ps1
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -19,7 +19,7 @@ Add-Type -AssemblyName System.Drawing
 #  配置
 # ══════════════════════════════════════════════════════════
 
-$script:AppTitle      = 'CodeLauncher'
+$script:AppTitle      = '环境启动器'
 $script:Root          = Join-Path $env:USERPROFILE 'VS Code'
 $script:WorkspaceFile = Join-Path $script:Root 'c-projects.code-workspace'
 $script:UiFont        = [System.Drawing.SystemFonts]::MessageBoxFont

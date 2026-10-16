@@ -291,10 +291,10 @@ let warningFileName = "!缺少工具链.md"
 
 let scaffolds = discoverScaffolds()
 
-// 调试开关：CODELAUNCHER_LIST=1 时只列出发现到的环境然后退出，不开面板。
+// 调试开关：ENVLAUNCHER_LIST=1 时只列出发现到的环境然后退出，不开面板。
 // 排查「为什么我新加的环境没出现在菜单里」时很有用：
-//   CODELAUNCHER_LIST=1 /Applications/环境启动器.app/Contents/MacOS/launcher
-if ProcessInfo.processInfo.environment["CODELAUNCHER_LIST"] == "1" {
+//   ENVLAUNCHER_LIST=1 /Applications/环境启动器.app/Contents/MacOS/launcher
+if ProcessInfo.processInfo.environment["ENVLAUNCHER_LIST"] == "1" {
     for s in scaffolds { print("\(s.id)\t\(s.label)\t\(s.path)") }
     exit(0)
 }

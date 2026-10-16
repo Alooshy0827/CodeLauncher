@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-#  build.sh —— 构建 macOS 版 CodeLauncher（环境启动器.app）
+#  build.sh —— 构建 macOS 版 EnvLauncher（环境启动器.app）
 #
 #  用法:  ./build.sh              构建到 ./dist/
 #         ./build.sh --install    构建并安装到 ~/Applications/

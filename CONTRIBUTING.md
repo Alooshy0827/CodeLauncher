@@ -50,7 +50,7 @@ cd macos
 ## 目录约定
 
 - 项目根目录路径目前是写死的：macOS 是 `~/VS Code/`，Windows 是 `%USERPROFILE%\VS Code\`
-- 要改的话，编辑 `macos/main.swift` 顶部的 `root` 和 `windows/CodeLauncher.ps1` 顶部的 `$script:Root`
+- 要改的话，编辑 `macos/main.swift` 顶部的 `root` 和 `windows/EnvLauncher.ps1` 顶部的 `$script:Root`
 
 ## README 标题图标的对齐方式
 
@@ -64,7 +64,7 @@ cd macos
 标题用的是后者，配合 `align="absmiddle"`：
 
 ```html
-# <img src="assets/appicon-title.png" width="36" align="absmiddle"> CodeLauncher
+# <img src="assets/appicon-title.png" width="36" align="absmiddle"> EnvLauncher
 ```
 
 **为什么要留白**：GitHub 会把 `style` 和 `class` 属性清洗掉，只剩 `align` 可用来控制垂直对齐。而 `align="absmiddle"` 是把整张图（含透明区）在行内居中 —— 底部那 60px 透明区会把可见图标往上顶约 3px，正好抵消掉默认的偏低。实测偏差从 +3.5px 收敛到 −0.5px。
@@ -114,7 +114,7 @@ cd macos
 ### 排查「我的环境没出现在菜单里」
 
 ```bash
-CODELAUNCHER_LIST=1 ~/Applications/环境启动器.app/Contents/MacOS/launcher
+ENVLAUNCHER_LIST=1 ~/Applications/环境启动器.app/Contents/MacOS/launcher
 ```
 
 会直接列出发现到的环境、标签和来源路径，不开面板。
@@ -157,7 +157,7 @@ release 页面在 `/releases/tag/xxx` 下，README 里的相对路径会失效�
 
 ```bash
 python3 - <<'PY'
-repo = 'https://github.com/Alooshy0827/CodeLauncher'
+repo = 'https://github.com/Alooshy0827/EnvLauncher'
 readme = readme.replace('src="assets/', f'src="{repo}/raw/main/assets/')
 readme = readme.replace('](LICENSE)', f']({repo}/blob/main/LICENSE)')
 PY
@@ -168,7 +168,7 @@ PY
 ```bash
 git push origin main
 gh release create v1.x.0 --title "..." --notes-file notes.md --target main \
-  CodeLauncher-macOS-arm64.zip CodeLauncher-Windows.zip
+  EnvLauncher-macOS-arm64.zip EnvLauncher-Windows.zip
 ```
 
 更新已有 release 的内容：`gh release edit v1.x.0 --notes-file notes.md`

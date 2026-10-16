@@ -1,11 +1,11 @@
 ﻿#Requires -Version 5.1
 <#
-    install.ps1 —— 安装 CodeLauncher
+    install.ps1 —— 安装 EnvLauncher（环境启动器）
 
     做三件事：
       1. 把 new-c / new-py 等文件复制到 %USERPROFILE%\bin
       2. 把这个目录加进你的用户 PATH（这样在终端任何位置都能用 new-c）
-      3. 在桌面创建 CodeLauncher 快捷方式（可选）
+      3. 在桌面创建「环境启动器」快捷方式（可选）
 
     用法：右键本文件 → “使用 PowerShell 运行”
       或在 PowerShell 里：  powershell -ExecutionPolicy Bypass -File install.ps1
@@ -26,7 +26,7 @@ function Write-Step  { param([string]$t) Write-Host "$Green  ✓$Reset $t" }
 function Write-Warn  { param([string]$t) Write-Host "$Yellow  !$Reset $t" }
 
 Write-Host ''
-Write-Host "$Bold CodeLauncher 安装程序$Reset"
+Write-Host "$Bold 环境启动器 安装程序$Reset"
 Write-Host "$Dim  源目录: $SourceDir$Reset"
 Write-Host "$Dim  目标  : $BinDir$Reset"
 Write-Host ''
@@ -39,7 +39,7 @@ if (-not (Test-Path -LiteralPath $BinDir)) {
 # 自动收录目录下所有脚本 —— 以后新增环境脚手架不用改这个文件
 $files = @(Get-ChildItem -LiteralPath $SourceDir -Filter '*.ps1' -File -ErrorAction SilentlyContinue |
            Select-Object -ExpandProperty Name)
-$files += 'CodeLauncher.cmd'
+$files += 'EnvLauncher.cmd'
 
 $copied = 0
 foreach ($f in $files) {
@@ -73,8 +73,8 @@ $desktop = [Environment]::GetFolderPath('Desktop')
 if ($desktop -and (Test-Path -LiteralPath $desktop)) {
     try {
         $ws = New-Object -ComObject WScript.Shell
-        $lnk = $ws.CreateShortcut((Join-Path $desktop 'CodeLauncher.lnk'))
-        $lnk.TargetPath       = Join-Path $BinDir 'CodeLauncher.cmd'
+        $lnk = $ws.CreateShortcut((Join-Path $desktop '环境启动器.lnk'))
+        $lnk.TargetPath       = Join-Path $BinDir 'EnvLauncher.cmd'
         $lnk.WorkingDirectory = $BinDir
         $lnk.Description      = '选择一个环境，自动在 VS Code 新窗口打开'
         $lnk.IconLocation     = "$env:SystemRoot\System32\shell32.dll,13"
@@ -99,7 +99,7 @@ Write-Host ''
 Write-Host "$Green$Bold 安装完成$Reset"
 Write-Host ''
 Write-Host ' 现在可以：'
-Write-Host "   • 双击桌面的 CodeLauncher 图标启动面板"
+Write-Host "   • 双击桌面的「环境启动器」图标启动面板"
 Write-Host "   • 在终端里用$Bold new-c 项目名$Reset / $Bold new-py 项目名$Reset 建项目"
 Write-Host ''
 Write-Host "$Dim 提示：如果 new-c 提示找不到命令，重开一个终端窗口即可。$Reset"

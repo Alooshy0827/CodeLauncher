@@ -1,4 +1,4 @@
-# <img src="assets/appicon-title.png" width="36" align="absmiddle"> CodeLauncher
+# <img src="assets/appicon-title.png" width="36" align="absmiddle"> EnvLauncher
 
 选好环境，自动在 VS Code 新窗口打开 —— 目录结构、编译与调试配置一次生成，不用再手动建目录、配 `tasks.json`、敲命令。
 
@@ -10,12 +10,9 @@
 
 ## 安装
 
-**下载安装包**（推荐）→ [Releases](https://github.com/Alooshy0827/CodeLauncher/releases/latest)
+**下载安装包**（推荐）→ [Releases](https://github.com/Alooshy0827/EnvLauncher/releases/latest)
 
-| 平台 | 文件 |
-|---|---|
-| macOS（Apple Silicon） | `CodeLauncher-macOS-arm64.zip` |
-| Windows | `CodeLauncher-Windows.zip` |
+挑对应平台的那个：**macOS（Apple Silicon）** 或 **Windows**。
 
 > **macOS**：首次打开需**右键 →「打开」**（应用未签名，双击会被 Gatekeeper 拦下）
 >
@@ -25,8 +22,8 @@
 
 ```bash
 # macOS
-git clone https://github.com/Alooshy0827/CodeLauncher.git
-cd CodeLauncher/macos && ./build.sh --install
+git clone https://github.com/Alooshy0827/EnvLauncher.git
+cd EnvLauncher/macos && ./build.sh --install
 cp new-c new-py ~/bin/     # 可选：命令行建项目
 ```
 
