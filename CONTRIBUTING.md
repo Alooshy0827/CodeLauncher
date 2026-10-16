@@ -118,3 +118,63 @@ CODELAUNCHER_LIST=1 ~/Applications/环境启动器.app/Contents/MacOS/launcher
 ```
 
 会直接列出发现到的环境、标签和来源路径，不开面板。
+
+## 发布流程
+
+### Release notes 格式
+
+**先放一遍完整的 README，再写本次更新。** 这样访问 release 页面的人
+不用跳回仓库首页就知道这是什么、怎么装。
+
+结构：
+
+```markdown
+<该 tag 的完整 README>
+
+---
+
+## 本次更新
+
+<这次改了什么>
+```
+
+取某个 tag 的 README：
+
+```bash
+git show v1.2.0:README.md
+```
+
+### ⚠️ 相对链接要改成绝对路径
+
+release 页面在 `/releases/tag/xxx` 下，README 里的相对路径会失效：
+
+| README 里 | release 页面会解析成 | 结果 |
+|---|---|---|
+| `assets/appicon-title.png` | `.../releases/tag/assets/appicon-title.png` | ❌ 404 |
+| `LICENSE` | `.../releases/tag/LICENSE` | ❌ 404 |
+
+所以拼接前先替换成绝对链接：
+
+```bash
+python3 - <<'PY'
+repo = 'https://github.com/Alooshy0827/CodeLauncher'
+readme = readme.replace('src="assets/', f'src="{repo}/raw/main/assets/')
+readme = readme.replace('](LICENSE)', f']({repo}/blob/main/LICENSE)')
+PY
+```
+
+### 发布命令
+
+```bash
+git push origin main
+gh release create v1.x.0 --title "..." --notes-file notes.md --target main \
+  CodeLauncher-macOS-arm64.zip CodeLauncher-Windows.zip
+```
+
+更新已有 release 的内容：`gh release edit v1.x.0 --notes-file notes.md`
+
+### 打包注意事项
+
+- macOS 包**用 Python 的 `zipfile`**，不要用 `ditto` —— 后者不会设置
+  UTF-8 文件名标志（0x800），换成别的解压工具中文名会乱码
+- Windows 包用 `zip -r` 即可，但**打完后要解压验证 BOM 还在**
